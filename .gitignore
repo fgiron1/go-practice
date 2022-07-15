@@ -1,0 +1,4 @@
+/.vscode
+*.sum
+.env
+bin/
