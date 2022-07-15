@@ -1,15 +1,22 @@
 package main
 
 import (
+	"context"
 	"net/http"
 
+	"chatz.com/api/config"
 	"github.com/gin-gonic/gin"
 )
 
-var db = make(map[string]string)
+func getMessage(c *gin.Context) {
 
-func ping(c *gin.Context) {
-	c.String(http.StatusOK, "pong")
+	//room_id := c.MustGet("room_id")
+	//author_id := c.MustGet("author_id")
+	//message := c.Params.ByName("message")
+
+	// Query the mongoDB instance
+	config.InitDB(context.TODO())
+
 }
 
 func getUserValueFromName(c *gin.Context) {
@@ -26,7 +33,7 @@ func setupRouter() *gin.Engine {
 
 	r := gin.Default()
 
-	r.GET("/ping", ping)
+	r.GET("/msg", getMessage)
 	r.GET("/user/:name", getUserValueFromName)
 	// Authorized group (uses gin.BasicAuth() middleware)
 	// Same than:
