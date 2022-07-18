@@ -20,6 +20,12 @@ var (
 	mongoClient *mongo.Client
 )
 
+type Message struct {
+	Author_id int    `json:"author_id"`
+	Room_id   int    `json:"room_id"`
+	Message   string `json:"message"`
+}
+
 // Get the messages related to a certain author in a certain chat room, since forever.
 func getMessage(c *gin.Context) {
 
@@ -48,39 +54,85 @@ func getMessage(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-func getUserValueFromName(c *gin.Context) {
+func getMessagesByRoomId(c *gin.Context) {
 
-	/*mongoClient := config.InitClient(context.TODO())
-	defer config.DisconnectClient()
+	reqParams := c.Request.URL.Query()
+	room_id, _ := strconv.Atoi(reqParams["room_id"][0])
 
-	username := c.Params.ByName("name")
+	messagesColl := mongoClient.Database("chats").Collection("messages")
 
-	// Comprobar si existe un value para dicho username en mongoDB
+	var result bson.M
+	err := messagesColl.FindOne(c, bson.D{
+		{Key: "room_id", Value: room_id},
+	}).Decode(&result)
 
-	if ok {
-		c.JSON(http.StatusOK, gin.H{"user": username, "value": value})
-	} else {
-		c.JSON(http.StatusNotFound, gin.H{"user": username, "status": "no value"})
-	}*/
+	if err == mongo.ErrNoDocuments {
+		fmt.Printf("No messages were found for the specified room: %d\n", room_id)
+		c.String(http.StatusNotFound, "No messages were found for the specified room: "+strconv.Itoa(room_id))
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+
+}
+
+func getRoomById(c *gin.Context) {
+
+	reqParams := c.Request.URL.Query()
+	room_id, _ := strconv.Atoi(reqParams["room_id"][0])
+
+	roomsColl := mongoClient.Database("chats").Collection("rooms")
+
+	var result bson.M
+	err := roomsColl.FindOne(c, bson.D{
+		{Key: "room_id", Value: room_id},
+	}).Decode(&result)
+
+	if err == mongo.ErrNoDocuments {
+		fmt.Printf("No room were found for the specified id: %d\n", room_id)
+		c.String(http.StatusNotFound, "No rooms were found for the specified id: "+strconv.Itoa(room_id))
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+
+}
+
+func sendMessage(c *gin.Context) {
+
+	messagesColl := mongoClient.Database("chats").Collection("messages")
+
+	var payload []Message
+	docs := make([]interface{}, len(payload))
+
+	for _, element := range payload {
+		docs = append(docs, element)
+	}
+
+	res, err := messagesColl.InsertMany(c, docs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, "There was an error, and documents could not be created.")
+	}
+
+	c.JSON(http.StatusOK, result)
+
 }
 
 func setupRouter() *gin.Engine {
 
 	r := gin.Default()
 
-	r.GET("/msg", getMessage)
 	r.GET("/user/:name", getUserValueFromName)
 
 	authorized := r.Group("/", gin.BasicAuth(gin.Accounts{
-		"foo":  "bar", // foo:bar
-		"manu": "123", // manu:123
+		"root": "root",
 	}))
 
-	/* example basicauth header:
-	authorization: Basic Zm9vOmJhcg==
-	Body: {"value":"bar"}
-	*/
-	authorized.POST("admin", func(c *gin.Context) {
+	authorized.GET("/msg/:room_id", getMessagesByRoomId)
+	authorized.GET("/room/:room_id", getRoomById)
+	authorized.POST("/msg", sendMessage)
+
+	authorized.POST("msg", func(c *gin.Context) {
 		// Parse JSON
 		var json struct {
 			Value string `json:"value" binding:"required"`
